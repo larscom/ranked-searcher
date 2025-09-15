@@ -124,9 +124,7 @@ fn search<'a>(
             rank += compute_tf(query_word, found_document)
                 * compute_idf(query_word, total_documents, document_freq);
         }
-        if !rank.is_nan() {
-            result.push((found_document, rank));
-        }
+        result.push((found_document, rank));
     }
 
     result.sort_unstable_by(|(_, rank1), (_, rank2)| {
