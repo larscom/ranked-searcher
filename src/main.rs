@@ -20,15 +20,15 @@ struct Document {
     word_freq: Arc<HashMap<Word, usize>>,
 }
 
-impl std::cmp::PartialEq for &Document {
+impl std::cmp::PartialEq for Document {
     fn eq(&self, other: &Self) -> bool {
         self.path == other.path
     }
 }
 
-impl std::cmp::Eq for &Document {}
+impl std::cmp::Eq for Document {}
 
-impl std::hash::Hash for &Document {
+impl std::hash::Hash for Document {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.path.hash(state);
     }
@@ -41,7 +41,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         process::exit(1);
     }
 
-    let mut document_db = HashMap::<Word, Vec<Document>>::new();
+    let mut document_db = HashMap::<Word, HashSet<Document>>::new();
     let mut document_freq = HashMap::<Word, usize>::new();
     let mut total_documents = 0;
 
@@ -99,13 +99,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 };
                 match document_db.get_mut(&word) {
                     Some(docs) => {
-                        let has_document = docs.iter().any(|d| d.path == file_path);
-                        if !has_document {
-                            docs.push(document);
-                        }
+                        docs.insert(document);
                     }
                     None => {
-                        document_db.insert(word, vec![document]);
+                        document_db.insert(word, HashSet::from([document]));
                     }
                 }
             }
@@ -126,7 +123,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 fn search<'a>(
     query: &[char],
     total_documents: usize,
-    document_db: &'a HashMap<Word, Vec<Document>>,
+    document_db: &'a HashMap<Word, HashSet<Document>>,
     document_freq: &HashMap<Word, usize>,
 ) -> Vec<(&'a Document, Rank)> {
     let query_words = Lexer::new(query).collect::<HashSet<String>>();
