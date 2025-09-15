@@ -1,7 +1,7 @@
 use std::{
     collections::{HashMap, HashSet},
     env, fs,
-    path::PathBuf,
+    path::{Path, PathBuf},
     process,
     sync::Arc,
 };
@@ -34,29 +34,23 @@ impl std::hash::Hash for Document {
     }
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let mut args = env::args();
-    let _ = args.next().expect("executable location should be present");
-
-    let query = args.next().unwrap_or_else(|| {
-        eprintln!("ERROR: query is missing");
-        eprintln!("usage: fs <query> [dir]");
-        process::exit(1);
-    });
-
-    let dir_path = args
-        .next()
-        .map(PathBuf::from)
-        .unwrap_or_else(|| env::current_dir().expect("failed to get current working dir"));
-
-    let mut document_db = HashMap::<Word, HashSet<Document>>::new();
-    let mut document_freq = HashMap::<Word, usize>::new();
-    let mut total_documents = 0;
-
+fn process_dir(
+    dir_path: &Path,
+    total_documents: &mut usize,
+    document_db: &mut HashMap<Word, HashSet<Document>>,
+    document_freq: &mut HashMap<Word, usize>,
+) -> Result<(), Box<dyn std::error::Error>> {
     let dir = fs::read_dir(dir_path)?;
 
     for file in dir {
-        let file_path = file?.path();
+        let file = file?;
+        let file_path = file.path();
+        let file_type = file.file_type()?;
+
+        if file_type.is_dir() {
+            process_dir(&file_path, total_documents, document_db, document_freq)?;
+            continue;
+        };
 
         let dot_file = file_path
             .file_name()
@@ -71,7 +65,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let file_content = fs::read_to_string(&file_path);
 
         if let Ok(content) = file_content {
-            total_documents += 1;
+            *total_documents += 1;
 
             let chars = content.chars().collect::<Vec<char>>();
             let words = Lexer::new(&chars).collect::<Vec<String>>();
@@ -116,6 +110,35 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
     }
+
+    Ok(())
+}
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let mut args = env::args();
+    let _ = args.next().expect("executable location should be present");
+
+    let query = args.next().unwrap_or_else(|| {
+        eprintln!("ERROR: query is missing");
+        eprintln!("usage: fs <query> [dir]");
+        process::exit(1);
+    });
+
+    let dir_path = args
+        .next()
+        .map(PathBuf::from)
+        .unwrap_or_else(|| env::current_dir().expect("failed to get current working dir"));
+
+    let mut document_db = HashMap::<Word, HashSet<Document>>::new();
+    let mut document_freq = HashMap::<Word, usize>::new();
+    let mut total_documents = 0;
+
+    process_dir(
+        &dir_path,
+        &mut total_documents,
+        &mut document_db,
+        &mut document_freq,
+    )?;
 
     let query_chars = query.chars().collect::<Vec<_>>();
 
