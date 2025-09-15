@@ -1,4 +1,10 @@
-use std::{collections::HashMap, fs, path::PathBuf, sync::Arc};
+use std::{
+    collections::{HashMap, HashSet},
+    env, fs,
+    path::PathBuf,
+    process,
+    sync::Arc,
+};
 
 use crate::lexer::Lexer;
 
@@ -14,7 +20,27 @@ struct Document {
     word_freq: Arc<HashMap<Word, usize>>,
 }
 
-fn main() -> Result<(), std::io::Error> {
+impl std::cmp::PartialEq for &Document {
+    fn eq(&self, other: &Self) -> bool {
+        self.path == other.path
+    }
+}
+
+impl std::cmp::Eq for &Document {}
+
+impl std::hash::Hash for &Document {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.path.hash(state);
+    }
+}
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let query = env::args().skip(1).collect::<String>();
+    if query.is_empty() {
+        eprintln!("usage: fs <query>");
+        process::exit(1);
+    }
+
     let mut document_db = HashMap::<Word, Vec<Document>>::new();
     let mut document_freq = HashMap::<Word, usize>::new();
     let mut total_documents = 0;
@@ -86,7 +112,6 @@ fn main() -> Result<(), std::io::Error> {
         }
     }
 
-    let query = "furniture";
     let query_chars = query.chars().collect::<Vec<_>>();
 
     let search_result = search(&query_chars, total_documents, &document_db, &document_freq);
@@ -104,14 +129,14 @@ fn search<'a>(
     document_db: &'a HashMap<Word, Vec<Document>>,
     document_freq: &HashMap<Word, usize>,
 ) -> Vec<(&'a Document, Rank)> {
-    let query_words = Lexer::new(query).collect::<Vec<String>>();
+    let query_words = Lexer::new(query).collect::<HashSet<String>>();
 
-    let mut found_documents = Vec::new();
+    let mut found_documents = HashSet::new();
 
     for query_word in query_words.iter() {
         if let Some(documents) = document_db.get(query_word) {
             for document in documents {
-                found_documents.push(document);
+                found_documents.insert(document);
             }
         }
     }
@@ -124,6 +149,7 @@ fn search<'a>(
             rank += compute_tf(query_word, found_document)
                 * compute_idf(query_word, total_documents, document_freq);
         }
+
         result.push((found_document, rank));
     }
 
