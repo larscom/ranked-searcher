@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fs, path::PathBuf};
+use std::{collections::HashMap, fs, path::PathBuf, sync::Arc};
 
 use crate::lexer::Lexer;
 
@@ -10,11 +10,14 @@ type Rank = f32;
 #[derive(Debug)]
 struct Document {
     path: PathBuf,
-    word_count: usize,
+    total_word_count: usize,
+    word_freq: Arc<HashMap<Word, usize>>,
 }
 
 fn main() -> Result<(), std::io::Error> {
-    let mut db = HashMap::<Word, Vec<Document>>::new();
+    let mut document_db = HashMap::<Word, Vec<Document>>::new();
+    let mut document_freq = HashMap::<Word, usize>::new();
+    let mut total_documents = 0;
 
     let dir = fs::read_dir("./test_data")?;
 
@@ -34,74 +37,114 @@ fn main() -> Result<(), std::io::Error> {
         let file_content = fs::read_to_string(&file_path);
 
         if let Ok(content) = file_content {
+            total_documents += 1;
+
             let chars = content.chars().collect::<Vec<char>>();
             let words = Lexer::new(&chars).collect::<Vec<String>>();
-            let word_count = words.len();
+            let mut word_freq = HashMap::new();
+
+            let mut total_word_count = 0;
+
+            for word in words.iter() {
+                if let Some(count) = word_freq.get_mut(word) {
+                    *count += 1;
+                } else {
+                    word_freq.insert(word.to_string(), 1);
+                }
+                total_word_count += 1;
+            }
+
+            for word in word_freq.keys() {
+                if let Some(count) = document_freq.get_mut(word) {
+                    *count += 1;
+                } else {
+                    document_freq.insert(word.to_string(), 1);
+                }
+            }
+
+            let word_freq = Arc::new(word_freq);
 
             for word in words {
-                let doc = Document {
-                    path: file_path.clone(),
-                    word_count,
+                let path = file_path.clone();
+                let document = Document {
+                    path,
+                    total_word_count,
+                    word_freq: word_freq.clone(),
                 };
-                match db.get_mut(&word) {
+                match document_db.get_mut(&word) {
                     Some(docs) => {
-                        let has_doc = docs.iter().any(|d| d.path == file_path);
-                        if !has_doc {
-                            docs.push(doc);
+                        let has_document = docs.iter().any(|d| d.path == file_path);
+                        if !has_document {
+                            docs.push(document);
                         }
                     }
                     None => {
-                        db.insert(word, vec![doc]);
+                        document_db.insert(word, vec![document]);
                     }
                 }
             }
         }
     }
 
-    for (word, docs) in db.iter() {
-        if word == "furniture" {
-            println!("Word: {}, docs: {:?}", word, docs)
-        }
+    let query = "furniture";
+    let query_chars = query.chars().collect::<Vec<_>>();
+
+    let search_result = search(&query_chars, total_documents, &document_db, &document_freq);
+
+    for (document, _rank) in search_result {
+        println!("Path: {}", document.path.display())
     }
 
     Ok(())
 }
 
-fn search(query: &[char], db: &HashMap<Word, Vec<Document>>) -> Vec<(Document, Rank)> {
-    let mut result = Vec::new();
+fn search<'a>(
+    query: &[char],
+    total_documents: usize,
+    document_db: &'a HashMap<Word, Vec<Document>>,
+    document_freq: &HashMap<Word, usize>,
+) -> Vec<(&'a Document, Rank)> {
     let query_words = Lexer::new(query).collect::<Vec<String>>();
-    let total_docs = db
-        .values()
-        .fold(0f32, |a, b: &Vec<Document>| a + b.len() as f32);
 
-    // for q_word in query_words.iter() {
-    //     match db.g
-    // }
+    let mut found_documents = Vec::new();
 
-    // for (word, docs) in db.iter() {
-    //     let mut rank = 0f32;
-    //     for query_word in &query_words {
-    //         rank +=
-    //             compute_tf(query_word, doc) * compute_idf(query_word, self.docs.len(), &self.df);
-    //     }
+    for query_word in query_words.iter() {
+        if let Some(documents) = document_db.get(query_word) {
+            for document in documents {
+                found_documents.push(document);
+            }
+        }
+    }
 
-    //     if !rank.is_nan() {
-    //         result.push((path.clone(), rank));
-    //     }
-    // }
-    result.sort_unstable_by(|(_, rank1): &(Document, f32), (_, rank2)| {
-        rank1
-            .partial_cmp(rank2)
-            .expect(&format!("{rank1} and {rank2} are not comparable"))
+    let mut result = Vec::new();
+
+    for found_document in found_documents {
+        let mut rank = 0f32;
+        for query_word in query_words.iter() {
+            rank += compute_tf(query_word, found_document)
+                * compute_idf(query_word, total_documents, document_freq);
+        }
+        if !rank.is_nan() {
+            result.push((found_document, rank));
+        }
+    }
+
+    result.sort_unstable_by(|(_, rank1), (_, rank2)| {
+        rank1.partial_cmp(rank2).expect("f32 should be comparable")
     });
+
     result.reverse();
     result
 }
 
-fn compute_tf(word_freq: f32, word_count: f32) -> f32 {
-    word_freq / word_count
+fn compute_tf(word: &str, document: &Document) -> f32 {
+    let n = document.total_word_count as f32;
+    let m = document.word_freq.get(word).cloned().unwrap_or(0) as f32;
+    m / n
 }
 
-fn compute_idf(total_docs: f32, word_count_docs: f32) -> f32 {
-    (total_docs / word_count_docs).log10()
+fn compute_idf(word: &str, total_documents: usize, document_freq: &HashMap<Word, usize>) -> f32 {
+    let n = total_documents as f32;
+    let m = document_freq.get(word).cloned().unwrap_or(1) as f32;
+    (n / m).log10()
 }
