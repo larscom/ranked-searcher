@@ -91,8 +91,8 @@ fn main() -> Result<(), std::io::Error> {
 
     let search_result = search(&query_chars, total_documents, &document_db, &document_freq);
 
-    for (document, _rank) in search_result {
-        println!("Path: {}", document.path.display())
+    for (document, rank) in search_result {
+        println!("({}) Path: {}", rank, document.path.display())
     }
 
     Ok(())
