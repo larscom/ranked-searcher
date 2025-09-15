@@ -35,17 +35,25 @@ impl std::hash::Hash for Document {
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let query = env::args().skip(1).collect::<String>();
-    if query.is_empty() {
-        eprintln!("usage: fs <query>");
+    let mut args = env::args();
+    let _ = args.next().expect("executable location should be present");
+
+    let query = args.next().unwrap_or_else(|| {
+        eprintln!("ERROR: query is missing");
+        eprintln!("usage: fs <query> [dir]");
         process::exit(1);
-    }
+    });
+
+    let dir_path = args
+        .next()
+        .map(PathBuf::from)
+        .unwrap_or_else(|| env::current_dir().expect("failed to get current working dir"));
 
     let mut document_db = HashMap::<Word, HashSet<Document>>::new();
     let mut document_freq = HashMap::<Word, usize>::new();
     let mut total_documents = 0;
 
-    let dir = fs::read_dir("./test_data")?;
+    let dir = fs::read_dir(dir_path)?;
 
     for file in dir {
         let file_path = file?.path();
