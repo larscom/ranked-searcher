@@ -1,26 +1,20 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 
-use crate::{document, lexer::Lexer};
+use crate::{
+    DocumentIndex,
+    document::{self},
+    lexer::Lexer,
+};
 
 pub type Rank = f32;
 
 pub struct RankedSearch<'a> {
-    total_documents: usize,
-    document_db: &'a HashMap<document::Word, HashSet<document::Document>>,
-    document_freq: &'a HashMap<document::Word, usize>,
+    document_index: &'a DocumentIndex,
 }
 
 impl<'a> RankedSearch<'a> {
-    pub fn new(
-        total_documents: usize,
-        document_db: &'a HashMap<document::Word, HashSet<document::Document>>,
-        document_freq: &'a HashMap<document::Word, usize>,
-    ) -> Self {
-        Self {
-            total_documents,
-            document_db,
-            document_freq,
-        }
+    pub fn new(document_index: &'a DocumentIndex) -> Self {
+        Self { document_index }
     }
 
     pub fn search(&self, query: &[char]) -> Vec<(&document::Document, Rank)> {
@@ -29,7 +23,7 @@ impl<'a> RankedSearch<'a> {
         let mut found_documents = HashSet::new();
 
         for query_word in query_words.iter() {
-            if let Some(documents) = self.document_db.get(query_word) {
+            if let Some(documents) = self.document_index.get_documents(query_word) {
                 for document in documents {
                     found_documents.insert(document);
                 }
@@ -38,10 +32,22 @@ impl<'a> RankedSearch<'a> {
 
         let mut result = Vec::new();
 
+        let total_documents = self.document_index.get_total_documents();
         for found_document in found_documents {
             let mut rank = 0f32;
+
+            let total_word_count = found_document.get_total_word_count();
+
             for query_word in query_words.iter() {
-                rank += self.compute_tf(query_word, found_document) * self.compute_idf(query_word);
+                let document_freq = self
+                    .document_index
+                    .get_document_freq(query_word)
+                    .unwrap_or(1) as f32;
+
+                let word_freq = found_document.get_word_freq(query_word).unwrap_or(0) as f32;
+
+                rank += self.compute_tf(total_word_count as f32, word_freq)
+                    * self.compute_idf(total_documents as f32, document_freq);
             }
 
             result.push((found_document, rank));
@@ -55,15 +61,11 @@ impl<'a> RankedSearch<'a> {
         result
     }
 
-    fn compute_tf(&self, word: &str, document: &document::Document) -> f32 {
-        let n = document.total_word_count as f32;
-        let m = document.word_freq.get(word).cloned().unwrap_or(0) as f32;
-        m / n
+    fn compute_tf(&self, total_word_count: f32, word_freq: f32) -> f32 {
+        word_freq / total_word_count
     }
 
-    fn compute_idf(&self, word: &str) -> f32 {
-        let n = self.total_documents as f32;
-        let m = self.document_freq.get(word).cloned().unwrap_or(1) as f32;
-        (n / m).log10()
+    fn compute_idf(&self, total_documents: f32, document_freq: f32) -> f32 {
+        (total_documents / document_freq).log10()
     }
 }
