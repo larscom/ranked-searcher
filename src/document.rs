@@ -102,15 +102,15 @@ impl DocumentIndex {
         Ok(())
     }
 
-    pub fn get_documents(&self, word: &Word) -> Option<&HashSet<Document>> {
+    pub fn documents(&self, word: &Word) -> Option<&HashSet<Document>> {
         self.document_db.get(word)
     }
 
-    pub fn get_document_freq(&self, word: &Word) -> Option<usize> {
+    pub fn document_frequency(&self, word: &Word) -> Option<usize> {
         self.document_freq.get(word).cloned()
     }
 
-    pub fn get_total_documents(&self) -> usize {
+    pub fn total_documents_count(&self) -> usize {
         self.total_documents
     }
 
