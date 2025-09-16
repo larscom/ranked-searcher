@@ -8,37 +8,15 @@ use std::{
 
 use crate::lexer::Lexer;
 
+mod document;
 mod lexer;
-
-type Word = String;
-type Rank = f32;
-
-#[derive(Debug)]
-struct Document {
-    path: PathBuf,
-    total_word_count: usize,
-    word_freq: Rc<HashMap<Word, usize>>,
-}
-
-impl std::cmp::PartialEq for Document {
-    fn eq(&self, other: &Self) -> bool {
-        self.path == other.path
-    }
-}
-
-impl std::cmp::Eq for Document {}
-
-impl std::hash::Hash for Document {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.path.hash(state);
-    }
-}
+mod search;
 
 fn process_dir(
     dir_path: &Path,
     total_documents: &mut usize,
-    document_db: &mut HashMap<Word, HashSet<Document>>,
-    document_freq: &mut HashMap<Word, usize>,
+    document_db: &mut HashMap<document::Word, HashSet<document::Document>>,
+    document_freq: &mut HashMap<document::Word, usize>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let dir = fs::read_dir(dir_path)?;
 
@@ -94,11 +72,7 @@ fn process_dir(
 
             for word in words {
                 let path = file_path.clone();
-                let document = Document {
-                    path,
-                    total_word_count,
-                    word_freq: word_freq.clone(),
-                };
+                let document = document::Document::new(path, total_word_count, word_freq.clone());
                 match document_db.get_mut(&word) {
                     Some(docs) => {
                         docs.insert(document);
@@ -120,7 +94,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let query = args.next().unwrap_or_else(|| {
         eprintln!("ERROR: query is missing");
-        eprintln!("usage: fs <query> [dir]");
+        eprintln!("usage: rs <query> [dir]");
         process::exit(1);
     });
 
@@ -129,8 +103,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .map(PathBuf::from)
         .unwrap_or_else(|| env::current_dir().expect("failed to get current working dir"));
 
-    let mut document_db = HashMap::<Word, HashSet<Document>>::new();
-    let mut document_freq = HashMap::<Word, usize>::new();
+    let mut document_db = HashMap::<document::Word, HashSet<document::Document>>::new();
+    let mut document_freq = HashMap::<document::Word, usize>::new();
     let mut total_documents = 0;
 
     process_dir(
@@ -140,63 +114,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         &mut document_freq,
     )?;
 
+    let rs = search::RankedSearch::new(total_documents, &document_db, &document_freq);
+
     let query_chars = query.chars().collect::<Vec<_>>();
+    let search_result = rs.search(&query_chars);
 
-    let search_result = search(&query_chars, total_documents, &document_db, &document_freq);
-
-    for (document, rank) in search_result {
+    for (document, rank) in search_result.into_iter().take(25) {
         println!("({}) Path: {}", rank, document.path.display())
     }
 
     Ok(())
-}
-
-fn search<'a>(
-    query: &[char],
-    total_documents: usize,
-    document_db: &'a HashMap<Word, HashSet<Document>>,
-    document_freq: &HashMap<Word, usize>,
-) -> Vec<(&'a Document, Rank)> {
-    let query_words = Lexer::new(query).collect::<HashSet<String>>();
-
-    let mut found_documents = HashSet::new();
-
-    for query_word in query_words.iter() {
-        if let Some(documents) = document_db.get(query_word) {
-            for document in documents {
-                found_documents.insert(document);
-            }
-        }
-    }
-
-    let mut result = Vec::new();
-
-    for found_document in found_documents {
-        let mut rank = 0f32;
-        for query_word in query_words.iter() {
-            rank += compute_tf(query_word, found_document)
-                * compute_idf(query_word, total_documents, document_freq);
-        }
-
-        result.push((found_document, rank));
-    }
-
-    result.sort_unstable_by(|(_, rank1), (_, rank2)| {
-        rank1.partial_cmp(rank2).expect("f32 should be comparable")
-    });
-
-    result.reverse();
-    result
-}
-
-fn compute_tf(word: &str, document: &Document) -> f32 {
-    let n = document.total_word_count as f32;
-    let m = document.word_freq.get(word).cloned().unwrap_or(0) as f32;
-    m / n
-}
-
-fn compute_idf(word: &str, total_documents: usize, document_freq: &HashMap<Word, usize>) -> f32 {
-    let n = total_documents as f32;
-    let m = document_freq.get(word).cloned().unwrap_or(1) as f32;
-    (n / m).log10()
 }
