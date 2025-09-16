@@ -1,6 +1,11 @@
 [package]
-name = "file-searcher"
+name = "ranked-searcher"
 version = "0.1.0"
 edition = "2024"
 
+[[bin]]
+name = "rs"
+path = "src/main.rs"
+
 [dependencies]
+rust-stemmers = "1.2.0"

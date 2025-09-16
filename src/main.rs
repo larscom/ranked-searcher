@@ -3,7 +3,7 @@ use std::{
     env, fs,
     path::{Path, PathBuf},
     process,
-    sync::Arc,
+    rc::Rc,
 };
 
 use crate::lexer::Lexer;
@@ -17,7 +17,7 @@ type Rank = f32;
 struct Document {
     path: PathBuf,
     total_word_count: usize,
-    word_freq: Arc<HashMap<Word, usize>>,
+    word_freq: Rc<HashMap<Word, usize>>,
 }
 
 impl std::cmp::PartialEq for Document {
@@ -90,7 +90,7 @@ fn process_dir(
                 }
             }
 
-            let word_freq = Arc::new(word_freq);
+            let word_freq = Rc::new(word_freq);
 
             for word in words {
                 let path = file_path.clone();
