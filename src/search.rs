@@ -3,7 +3,6 @@ use std::collections::HashSet;
 use crate::{
     DocumentIndex,
     document::{Document, Word},
-    lexer::Lexer,
 };
 
 pub type Rank = f32;
@@ -51,12 +50,10 @@ impl<'a> RankedSearcher<'a> {
         Self { document_index }
     }
 
-    pub fn search(&self, query: &[char]) -> Vec<Result<'_>> {
-        let query_words = Lexer::new(query).collect::<HashSet<String>>();
-
+    pub fn search(&self, words: &HashSet<String>) -> Vec<Result<'_>> {
         let mut found_documents = HashSet::new();
 
-        for query_word in query_words.iter() {
+        for query_word in words.iter() {
             if let Some(documents) = self.document_index.documents(query_word) {
                 for document in documents {
                     found_documents.insert(document);
@@ -64,13 +61,13 @@ impl<'a> RankedSearcher<'a> {
             }
         }
 
-        self.generate_results(query_words, found_documents)
+        self.generate_results(words, &found_documents)
     }
 
     fn generate_results(
         &self,
-        query_words: HashSet<String>,
-        found_documents: HashSet<&'a Document>,
+        query_words: &HashSet<String>,
+        found_documents: &HashSet<&'a Document>,
     ) -> Vec<Result<'_>> {
         let mut result = Vec::new();
 

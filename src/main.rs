@@ -1,6 +1,6 @@
-use crate::{document::DocumentIndex, search::RankedSearcher};
+use crate::{document::DocumentIndex, lexer::Lexer, search::RankedSearcher};
 use colored::Colorize;
-use std::{env, path::PathBuf, process};
+use std::{collections::HashSet, env, path::PathBuf, process};
 
 mod document;
 mod lexer;
@@ -27,7 +27,11 @@ fn main() {
     let rs = RankedSearcher::new(&document_index);
 
     let query_chars = query.chars().collect::<Vec<_>>();
-    let search_result = rs.search(&query_chars);
+    let query_words = Lexer::new(&query_chars).collect::<HashSet<String>>();
+
+    println!("{:?}", &query_words);
+
+    let search_result = rs.search(&query_words);
 
     for result in search_result {
         println!(
@@ -38,6 +42,7 @@ fn main() {
                 .display()
                 .to_string()
                 .bright_green()
-        )
+        );
+        result.document.highlight_words(&query_words).unwrap();
     }
 }

@@ -1,15 +1,18 @@
+use colored::Colorize;
+use ignore::WalkBuilder;
+use rayon::iter::{ParallelBridge, ParallelIterator};
+use regex::Regex;
 use std::{
     collections::{HashMap, HashSet},
-    fs,
+    error::Error,
+    fs::{self, File},
+    io::{BufRead, BufReader},
     path::{Path, PathBuf},
     sync::{
         Arc, Mutex,
         atomic::{AtomicUsize, Ordering},
     },
 };
-
-use ignore::WalkBuilder;
-use rayon::iter::{ParallelBridge, ParallelIterator};
 
 use crate::lexer::Lexer;
 
@@ -29,6 +32,30 @@ impl Document {
             total_words,
             word_freq,
         }
+    }
+
+    pub fn highlight_words(&self, words: &HashSet<String>) -> Result<(), Box<dyn Error>> {
+        let reader = BufReader::new(File::open(&self.path)?);
+        let pattern = format!(
+            "(?i)({})",
+            words
+                .iter()
+                .map(|w| regex::escape(w))
+                .collect::<Vec<_>>()
+                .join("|")
+        );
+        let re = Regex::new(&pattern)?;
+
+        for (num, line) in reader.lines().enumerate() {
+            let line = line?;
+            if re.is_match(&line) {
+                let highlighted = re.replace_all(&line, |caps: &regex::Captures| {
+                    caps[0].bright_blue().bold().to_string()
+                });
+                println!("{}:{}", (num + 1).to_string().bright_yellow(), highlighted);
+            }
+        }
+        Ok(())
     }
 
     pub fn word_frequency(&self, word: &Word) -> f32 {
