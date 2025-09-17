@@ -8,6 +8,7 @@ use crate::{
 
 pub type Rank = f32;
 
+#[allow(dead_code)]
 pub struct Result<'a> {
     pub rank: Rank,
     pub total_documents: usize,
@@ -15,6 +16,25 @@ pub struct Result<'a> {
     pub stats: Vec<Stat>,
 }
 
+impl<'a> Result<'a> {
+    pub fn print_stats(&self) {
+        println!(
+            "\nFile: {}\n-----------------------------",
+            self.document.file_path().display()
+        );
+
+        // header
+        println!("{:<15} | {:>10}", "Word", "Frequency");
+        println!("{:-<15}-+-{:-<10}", "", "");
+
+        // rows
+        for s in self.stats.iter() {
+            println!("{:<15} | {:>10}", s.query_word, s.word_freq);
+        }
+    }
+}
+
+#[allow(dead_code)]
 pub struct Stat {
     pub query_word: Word,
     pub word_freq: f32,

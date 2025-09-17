@@ -30,26 +30,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let search_result = rs.search(&query_chars);
 
     for result in search_result {
-        println!(
-            "\nPath: {}\n-----------------------------",
-            result.document.file_path().display()
-        );
-
-        let max_width = result
-            .stats
-            .iter()
-            .map(|s| s.word_freq.to_string().len())
-            .max()
-            .unwrap_or(1);
-
-        for s in result.stats {
-            println!(
-                "   {:<15} {:>width$} times",
-                s.query_word,
-                s.word_freq,
-                width = max_width
-            );
-        }
+        result.print_stats();
     }
 
     Ok(())
