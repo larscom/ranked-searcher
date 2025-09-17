@@ -2,22 +2,35 @@ use std::collections::HashSet;
 
 use crate::{
     DocumentIndex,
-    document::{self},
+    document::{Document, Word},
     lexer::Lexer,
 };
 
 pub type Rank = f32;
 
-pub struct RankedSearch<'a> {
+pub struct Result<'a> {
+    pub rank: Rank,
+    pub total_documents: usize,
+    pub document: &'a Document,
+    pub stats: Vec<Stat>,
+}
+
+pub struct Stat {
+    pub query_word: Word,
+    pub word_freq: f32,
+    pub document_freq: f32,
+}
+
+pub struct RankedSearcher<'a> {
     document_index: &'a DocumentIndex,
 }
 
-impl<'a> RankedSearch<'a> {
+impl<'a> RankedSearcher<'a> {
     pub fn new(document_index: &'a DocumentIndex) -> Self {
         Self { document_index }
     }
 
-    pub fn search(&self, query: &[char]) -> Vec<(&document::Document, Rank)> {
+    pub fn search(&self, query: &[char]) -> Vec<Result<'a>> {
         let query_words = Lexer::new(query).collect::<HashSet<String>>();
 
         let mut found_documents = HashSet::new();
@@ -32,40 +45,51 @@ impl<'a> RankedSearch<'a> {
 
         let mut result = Vec::new();
 
-        let total_documents = self.document_index.total_documents_count();
-        for found_document in found_documents {
-            let mut rank = 0f32;
+        let total_documents = self.document_index.total_document_count();
 
-            let total_word_count = found_document.get_total_word_count();
+        for document in found_documents {
+            let mut rank = 0f32;
+            let mut stats = Vec::new();
+
+            let total_word_count = document.total_word_count();
 
             for query_word in query_words.iter() {
-                let document_freq = self
-                    .document_index
-                    .document_frequency(query_word)
-                    .unwrap_or(1) as f32;
+                let document_freq = self.document_index.document_frequency(query_word);
+                let word_freq = document.word_frequency(query_word);
 
-                let word_freq = found_document.get_word_freq(query_word).unwrap_or(0) as f32;
+                rank += self.calc_tf(total_word_count, word_freq)
+                    * self.calc_idf(total_documents, document_freq);
 
-                rank += self.compute_tf(total_word_count as f32, word_freq)
-                    * self.compute_idf(total_documents as f32, document_freq);
+                stats.push(Stat {
+                    query_word: query_word.clone(),
+                    word_freq,
+                    document_freq,
+                });
             }
 
-            result.push((found_document, rank));
+            result.push(Result {
+                rank,
+                total_documents,
+                document,
+                stats,
+            });
         }
 
-        result.sort_unstable_by(|(_, rank1), (_, rank2)| {
-            rank1.partial_cmp(rank2).expect("f32 should be comparable")
+        result.sort_unstable_by(|a, b| {
+            a.rank
+                .partial_cmp(&b.rank)
+                .expect("f32 should be comparable")
         });
 
         result.reverse();
         result
     }
 
-    fn compute_tf(&self, total_word_count: f32, word_freq: f32) -> f32 {
-        word_freq / total_word_count
+    fn calc_tf(&self, total_word_count: usize, word_freq: f32) -> f32 {
+        word_freq / total_word_count as f32
     }
 
-    fn compute_idf(&self, total_documents: f32, document_freq: f32) -> f32 {
-        (total_documents / document_freq).log10()
+    fn calc_idf(&self, total_documents: usize, document_freq: f32) -> f32 {
+        (total_documents as f32 / document_freq).log10()
     }
 }

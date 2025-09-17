@@ -12,32 +12,28 @@ pub type Word = String;
 #[derive(Debug)]
 pub struct Document {
     path: PathBuf,
-    total_word_count: usize,
+    total_words: usize,
     word_freq: Rc<HashMap<Word, usize>>,
 }
 
 impl Document {
-    pub fn new(
-        path: PathBuf,
-        total_word_count: usize,
-        word_freq: Rc<HashMap<Word, usize>>,
-    ) -> Self {
+    pub fn new(path: PathBuf, total_words: usize, word_freq: Rc<HashMap<Word, usize>>) -> Self {
         Self {
             path,
-            total_word_count,
+            total_words,
             word_freq,
         }
     }
 
-    pub fn get_word_freq(&self, word: &Word) -> Option<usize> {
-        self.word_freq.get(word).cloned()
+    pub fn word_frequency(&self, word: &Word) -> f32 {
+        self.word_freq.get(word).cloned().unwrap_or(0) as f32
     }
 
-    pub fn get_total_word_count(&self) -> usize {
-        self.total_word_count
+    pub fn total_word_count(&self) -> usize {
+        self.total_words
     }
 
-    pub fn get_path(&self) -> &Path {
+    pub fn file_path(&self) -> &Path {
         &self.path
     }
 }
@@ -106,11 +102,11 @@ impl DocumentIndex {
         self.document_db.get(word)
     }
 
-    pub fn document_frequency(&self, word: &Word) -> Option<usize> {
-        self.document_freq.get(word).cloned()
+    pub fn document_frequency(&self, word: &Word) -> f32 {
+        self.document_freq.get(word).cloned().unwrap_or(1) as f32
     }
 
-    pub fn total_documents_count(&self) -> usize {
+    pub fn total_document_count(&self) -> usize {
         self.total_documents
     }
 

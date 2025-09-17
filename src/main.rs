@@ -1,6 +1,6 @@
 use std::{env, path::PathBuf, process};
 
-use crate::{document::DocumentIndex, search::RankedSearch};
+use crate::{document::DocumentIndex, search::RankedSearcher};
 
 mod document;
 mod lexer;
@@ -24,13 +24,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut document_index = DocumentIndex::new();
     document_index.index_dir(&dir_path)?;
 
-    let rs = RankedSearch::new(&document_index);
+    let rs = RankedSearcher::new(&document_index);
 
     let query_chars = query.chars().collect::<Vec<_>>();
     let search_result = rs.search(&query_chars);
 
-    for (document, rank) in search_result.into_iter().take(25) {
-        println!("({}) Path: {}", rank, document.get_path().display())
+    for result in search_result.into_iter().take(25) {
+        println!(
+            "({}) Path: {}",
+            result.rank,
+            result.document.file_path().display()
+        )
     }
 
     Ok(())
