@@ -8,6 +8,7 @@ name = "rs"
 path = "src/main.rs"
 
 [dependencies]
+colored = "3.0.0"
 ignore = "0.4.23"
 rayon = "1.11.0"
 rust-stemmers = "1.2.0"

@@ -1,6 +1,6 @@
-use std::{env, path::PathBuf, process};
-
 use crate::{document::DocumentIndex, search::RankedSearcher};
+use colored::Colorize;
+use std::{env, path::PathBuf, process};
 
 mod document;
 mod lexer;
@@ -30,6 +30,14 @@ fn main() {
     let search_result = rs.search(&query_chars);
 
     for result in search_result {
-        result.print_stats();
+        println!(
+            "{}",
+            result
+                .document
+                .file_path()
+                .display()
+                .to_string()
+                .bright_green()
+        )
     }
 }

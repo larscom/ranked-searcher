@@ -16,6 +16,7 @@ pub struct Result<'a> {
     pub stats: Vec<Stat>,
 }
 
+#[allow(dead_code)]
 impl<'a> Result<'a> {
     pub fn print_stats(&self) {
         println!(
