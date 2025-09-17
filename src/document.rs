@@ -2,8 +2,14 @@ use std::{
     collections::{HashMap, HashSet},
     fs,
     path::{Path, PathBuf},
-    rc::Rc,
+    sync::{
+        Arc, Mutex,
+        atomic::{AtomicUsize, Ordering},
+    },
 };
+
+use rayon::iter::{ParallelBridge, ParallelIterator};
+use walkdir::WalkDir;
 
 use crate::lexer::Lexer;
 
@@ -13,11 +19,11 @@ pub type Word = String;
 pub struct Document {
     path: PathBuf,
     total_words: usize,
-    word_freq: Rc<HashMap<Word, usize>>,
+    word_freq: Arc<HashMap<Word, usize>>,
 }
 
 impl Document {
-    pub fn new(path: PathBuf, total_words: usize, word_freq: Rc<HashMap<Word, usize>>) -> Self {
+    pub fn new(path: PathBuf, total_words: usize, word_freq: Arc<HashMap<Word, usize>>) -> Self {
         Self {
             path,
             total_words,
@@ -64,38 +70,91 @@ impl DocumentIndex {
         Self::default()
     }
 
-    pub fn index_dir(&mut self, dir_path: &Path) -> Result<(), Box<dyn std::error::Error>> {
-        let dir = fs::read_dir(dir_path)?;
+    pub fn index_dir(&mut self, dir_path: &Path) {
+        let document_db: HashMap<Word, HashSet<Document>> = HashMap::new();
+        let document_db = Mutex::new(document_db);
 
-        for file in dir {
-            let file = file?;
-            let file_path = file.path();
-            let file_type = file.file_type()?;
+        let document_freq: HashMap<Word, usize> = HashMap::new();
+        let document_freq = Mutex::new(document_freq);
 
-            if file_type.is_dir() {
-                self.index_dir(&file_path)?;
-                continue;
-            };
+        let total_documents = AtomicUsize::new(0);
 
-            let dot_file = file_path
-                .file_name()
-                .and_then(|s| s.to_str())
-                .map(|s| s.starts_with("."))
-                .unwrap_or(false);
+        WalkDir::new(dir_path)
+            .into_iter()
+            .filter_entry(|e| {
+                let is_node_modules = e
+                    .file_name()
+                    .to_str()
+                    .map(|s| s == "node_modules")
+                    .unwrap_or(false);
 
-            if dot_file {
-                continue;
-            }
+                !is_node_modules
+            })
+            .filter_map(Result::ok)
+            .filter(|e| {
+                let is_file = e.file_type().is_file();
+                let is_dot_file = e
+                    .file_name()
+                    .to_str()
+                    .map(|s| s.starts_with("."))
+                    .unwrap_or(false);
 
-            let file_content = fs::read_to_string(&file_path);
+                is_file && !is_dot_file
+            })
+            .par_bridge()
+            .filter_map(|entry| {
+                let path = entry.path().to_path_buf();
+                fs::read_to_string(&path)
+                    .ok()
+                    .map(|content| (content, path))
+            })
+            .for_each(|(content, path)| {
+                total_documents.fetch_add(1, Ordering::Relaxed);
 
-            if let Ok(content) = file_content {
-                self.total_documents += 1;
-                self.update_index(content, file_path);
-            }
-        }
+                let chars = content.chars().collect::<Vec<char>>();
+                let words = Lexer::new(&chars).collect::<Vec<String>>();
+                let mut word_freq = HashMap::new();
 
-        Ok(())
+                let mut total_word_count = 0;
+
+                for word in words.iter() {
+                    if let Some(count) = word_freq.get_mut(word) {
+                        *count += 1;
+                    } else {
+                        word_freq.insert(word.to_string(), 1);
+                    }
+                    total_word_count += 1;
+                }
+
+                let mut document_freq = document_freq.lock().unwrap();
+                for word in word_freq.keys() {
+                    if let Some(count) = document_freq.get_mut(word) {
+                        *count += 1;
+                    } else {
+                        document_freq.insert(word.to_string(), 1);
+                    }
+                }
+
+                let word_freq = Arc::new(word_freq);
+
+                let mut document_db = document_db.lock().unwrap();
+                for word in words {
+                    let path = path.clone();
+                    let document = Document::new(path, total_word_count, word_freq.clone());
+                    match document_db.get_mut(&word) {
+                        Some(docs) => {
+                            docs.insert(document);
+                        }
+                        None => {
+                            document_db.insert(word, HashSet::from([document]));
+                        }
+                    }
+                }
+            });
+
+        self.total_documents = total_documents.load(Ordering::Relaxed);
+        self.document_db = document_db.into_inner().unwrap();
+        self.document_freq = document_freq.into_inner().unwrap();
     }
 
     pub fn documents(&self, word: &Word) -> Option<&HashSet<Document>> {
@@ -108,45 +167,5 @@ impl DocumentIndex {
 
     pub fn total_document_count(&self) -> usize {
         self.total_documents
-    }
-
-    fn update_index(&mut self, content: String, file_path: PathBuf) {
-        let chars = content.chars().collect::<Vec<char>>();
-        let words = Lexer::new(&chars).collect::<Vec<String>>();
-        let mut word_freq = HashMap::new();
-
-        let mut total_word_count = 0;
-
-        for word in words.iter() {
-            if let Some(count) = word_freq.get_mut(word) {
-                *count += 1;
-            } else {
-                word_freq.insert(word.to_string(), 1);
-            }
-            total_word_count += 1;
-        }
-
-        for word in word_freq.keys() {
-            if let Some(count) = self.document_freq.get_mut(word) {
-                *count += 1;
-            } else {
-                self.document_freq.insert(word.to_string(), 1);
-            }
-        }
-
-        let word_freq = Rc::new(word_freq);
-
-        for word in words {
-            let path = file_path.clone();
-            let document = Document::new(path, total_word_count, word_freq.clone());
-            match self.document_db.get_mut(&word) {
-                Some(docs) => {
-                    docs.insert(document);
-                }
-                None => {
-                    self.document_db.insert(word, HashSet::from([document]));
-                }
-            }
-        }
     }
 }

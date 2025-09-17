@@ -8,4 +8,6 @@ name = "rs"
 path = "src/main.rs"
 
 [dependencies]
+rayon = "1.11.0"
 rust-stemmers = "1.2.0"
+walkdir = "2.5.0"

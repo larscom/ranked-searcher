@@ -22,7 +22,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .unwrap_or_else(|| env::current_dir().expect("failed to get current working dir"));
 
     let mut document_index = DocumentIndex::new();
-    document_index.index_dir(&dir_path)?;
+    document_index.index_dir(&dir_path);
 
     let rs = RankedSearcher::new(&document_index);
 
