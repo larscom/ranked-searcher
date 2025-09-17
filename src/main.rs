@@ -6,7 +6,7 @@ mod document;
 mod lexer;
 mod search;
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() {
     let mut args = env::args();
     let _ = args.next().expect("executable location should be present");
 
@@ -32,6 +32,4 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     for result in search_result {
         result.print_stats();
     }
-
-    Ok(())
 }
