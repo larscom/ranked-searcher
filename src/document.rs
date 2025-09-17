@@ -8,8 +8,8 @@ use std::{
     },
 };
 
+use ignore::WalkBuilder;
 use rayon::iter::{ParallelBridge, ParallelIterator};
-use walkdir::WalkDir;
 
 use crate::lexer::Lexer;
 
@@ -71,36 +71,13 @@ impl DocumentIndex {
     }
 
     pub fn index_dir(&mut self, dir_path: &Path) {
-        let document_db: HashMap<Word, HashSet<Document>> = HashMap::new();
-        let document_db = Mutex::new(document_db);
-
-        let document_freq: HashMap<Word, usize> = HashMap::new();
-        let document_freq = Mutex::new(document_freq);
-
+        let document_db = Mutex::new(HashMap::<Word, HashSet<Document>>::new());
+        let document_freq = Mutex::new(HashMap::<Word, usize>::new());
         let total_documents = AtomicUsize::new(0);
 
-        WalkDir::new(dir_path)
-            .into_iter()
-            .filter_entry(|e| {
-                let is_node_modules = e
-                    .file_name()
-                    .to_str()
-                    .map(|s| s == "node_modules")
-                    .unwrap_or(false);
-
-                !is_node_modules
-            })
+        WalkBuilder::new(dir_path)
+            .build()
             .filter_map(Result::ok)
-            .filter(|e| {
-                let is_file = e.file_type().is_file();
-                let is_dot_file = e
-                    .file_name()
-                    .to_str()
-                    .map(|s| s.starts_with("."))
-                    .unwrap_or(false);
-
-                is_file && !is_dot_file
-            })
             .par_bridge()
             .filter_map(|entry| {
                 let path = entry.path().to_path_buf();
@@ -110,51 +87,18 @@ impl DocumentIndex {
             })
             .for_each(|(content, path)| {
                 total_documents.fetch_add(1, Ordering::Relaxed);
-
-                let chars = content.chars().collect::<Vec<char>>();
-                let words = Lexer::new(&chars).collect::<Vec<String>>();
-                let mut word_freq = HashMap::new();
-
-                let mut total_word_count = 0;
-
-                for word in words.iter() {
-                    if let Some(count) = word_freq.get_mut(word) {
-                        *count += 1;
-                    } else {
-                        word_freq.insert(word.to_string(), 1);
-                    }
-                    total_word_count += 1;
-                }
-
-                let mut document_freq = document_freq.lock().unwrap();
-                for word in word_freq.keys() {
-                    if let Some(count) = document_freq.get_mut(word) {
-                        *count += 1;
-                    } else {
-                        document_freq.insert(word.to_string(), 1);
-                    }
-                }
-
-                let word_freq = Arc::new(word_freq);
-
-                let mut document_db = document_db.lock().unwrap();
-                for word in words {
-                    let path = path.clone();
-                    let document = Document::new(path, total_word_count, word_freq.clone());
-                    match document_db.get_mut(&word) {
-                        Some(docs) => {
-                            docs.insert(document);
-                        }
-                        None => {
-                            document_db.insert(word, HashSet::from([document]));
-                        }
-                    }
-                }
+                self.update_index(content, path, &document_db, &document_freq);
             });
 
+        match document_db.into_inner() {
+            Ok(document_db) => self.document_db = document_db,
+            Err(err) => eprintln!("ERROR: could not consume document_db mutex: {err}"),
+        }
+        match document_freq.into_inner() {
+            Ok(document_freq) => self.document_freq = document_freq,
+            Err(err) => eprintln!("ERROR: could not consume document_freq mutex: {err}"),
+        }
         self.total_documents = total_documents.load(Ordering::Relaxed);
-        self.document_db = document_db.into_inner().unwrap();
-        self.document_freq = document_freq.into_inner().unwrap();
     }
 
     pub fn documents(&self, word: &Word) -> Option<&HashSet<Document>> {
@@ -167,5 +111,65 @@ impl DocumentIndex {
 
     pub fn total_document_count(&self) -> usize {
         self.total_documents
+    }
+
+    fn update_index(
+        &self,
+        content: String,
+        path: PathBuf,
+        document_db: &Mutex<HashMap<Word, HashSet<Document>>>,
+        document_freq: &Mutex<HashMap<Word, usize>>,
+    ) {
+        let chars = content.chars().collect::<Vec<char>>();
+        let words = Lexer::new(&chars).collect::<Vec<String>>();
+        let mut word_freq = HashMap::new();
+
+        let mut total_word_count = 0;
+
+        for word in words.iter() {
+            if let Some(count) = word_freq.get_mut(word) {
+                *count += 1;
+            } else {
+                word_freq.insert(word.to_string(), 1);
+            }
+            total_word_count += 1;
+        }
+
+        match document_freq.lock() {
+            Ok(mut document_freq) => {
+                for word in word_freq.keys() {
+                    if let Some(count) = document_freq.get_mut(word) {
+                        *count += 1;
+                    } else {
+                        document_freq.insert(word.to_string(), 1);
+                    }
+                }
+            }
+            Err(err) => {
+                eprintln!("ERROR: could not achieve lock on document_freq mutex: {err}")
+            }
+        }
+
+        let word_freq = Arc::new(word_freq);
+
+        match document_db.lock() {
+            Ok(mut document_db) => {
+                for word in words {
+                    let path = path.clone();
+                    let document = Document::new(path, total_word_count, word_freq.clone());
+                    match document_db.get_mut(&word) {
+                        Some(docs) => {
+                            docs.insert(document);
+                        }
+                        None => {
+                            document_db.insert(word, HashSet::from([document]));
+                        }
+                    }
+                }
+            }
+            Err(err) => {
+                eprintln!("ERROR: could not achieve lock on document_db mutex: {err}")
+            }
+        }
     }
 }

@@ -50,7 +50,7 @@ impl<'a> RankedSearcher<'a> {
         Self { document_index }
     }
 
-    pub fn search(&self, query: &[char]) -> Vec<Result<'a>> {
+    pub fn search(&self, query: &[char]) -> Vec<Result<'_>> {
         let query_words = Lexer::new(query).collect::<HashSet<String>>();
 
         let mut found_documents = HashSet::new();
@@ -63,6 +63,14 @@ impl<'a> RankedSearcher<'a> {
             }
         }
 
+        self.generate_results(query_words, found_documents)
+    }
+
+    fn generate_results(
+        &self,
+        query_words: HashSet<String>,
+        found_documents: HashSet<&'a Document>,
+    ) -> Vec<Result<'_>> {
         let mut result = Vec::new();
 
         let total_documents = self.document_index.total_document_count();
