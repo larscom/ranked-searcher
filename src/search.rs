@@ -50,7 +50,7 @@ impl<'a> RankedSearcher<'a> {
         Self { document_index }
     }
 
-    pub fn search(&self, words: &HashSet<String>) -> Vec<Result<'_>> {
+    pub fn search(&self, words: &HashSet<Word>) -> Vec<Result<'_>> {
         let mut found_documents = HashSet::new();
 
         for query_word in words.iter() {
@@ -66,7 +66,7 @@ impl<'a> RankedSearcher<'a> {
 
     fn generate_results(
         &self,
-        query_words: &HashSet<String>,
+        query_words: &HashSet<Word>,
         found_documents: &HashSet<&'a Document>,
     ) -> Vec<Result<'_>> {
         let mut result = Vec::new();
