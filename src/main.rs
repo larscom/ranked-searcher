@@ -33,7 +33,7 @@ fn main() {
 
     for result in search_result {
         println!(
-            "\n{}",
+            "{}",
             result
                 .document
                 .file_path()
