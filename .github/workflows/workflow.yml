@@ -36,4 +36,4 @@ jobs:
           version=${{ github.ref_name }}
           sed -i "s/^version = \".*\"/version = \"$version\"/" ./Cargo.toml
 
-          cargo publish --all-features --allow-dirty
+          cargo publish --all-features --allow-dirty --no-verify
