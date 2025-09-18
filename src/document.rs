@@ -14,8 +14,6 @@ use std::{
     },
 };
 
-use crate::lexer::Lexer;
-
 pub type Word = String;
 
 #[derive(Debug)]
@@ -34,7 +32,7 @@ impl Document {
         }
     }
 
-    pub fn highlight_words(&self, words: &HashSet<String>) -> Result<(), Box<dyn Error>> {
+    pub fn print_highlight_words(&self, words: &HashSet<Word>) -> Result<(), Box<dyn Error>> {
         let reader = BufReader::new(File::open(&self.path)?);
         let pattern = format!(
             "(?i)({})",
@@ -55,6 +53,7 @@ impl Document {
                 println!("{}:{}", (num + 1).to_string().bright_yellow(), highlighted);
             }
         }
+
         Ok(())
     }
 
@@ -147,8 +146,7 @@ impl DocumentIndex {
         document_db: &Mutex<HashMap<Word, HashSet<Document>>>,
         document_freq: &Mutex<HashMap<Word, usize>>,
     ) {
-        let chars = content.chars().collect::<Vec<char>>();
-        let words = Lexer::new(&chars).collect::<Vec<String>>();
+        let words = WordCollector::new(&content).collect();
         let mut word_freq = HashMap::new();
 
         let mut total_word_count = 0;
@@ -198,5 +196,33 @@ impl DocumentIndex {
                 eprintln!("ERROR: could not achieve lock on document_db mutex: {err}")
             }
         }
+    }
+}
+
+pub struct WordCollector<'a> {
+    content: &'a str,
+    word_matcher: Regex,
+}
+
+impl<'a> WordCollector<'a> {
+    pub fn new(content: &'a str) -> Self {
+        Self {
+            content,
+            word_matcher: Regex::new(r"[A-Za-z0-9.]+").expect("should be valid regex"),
+        }
+    }
+
+    pub fn collect_unique(&self) -> HashSet<Word> {
+        self.iter().collect()
+    }
+
+    pub fn collect(&self) -> Vec<Word> {
+        self.iter().collect()
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = Word> {
+        self.word_matcher
+            .find_iter(self.content)
+            .map(|m| m.as_str().to_ascii_lowercase())
     }
 }
