@@ -43,7 +43,7 @@ fn main() {
         );
 
         if let Err(err) = result.document.print_highlight_words(&query_words) {
-            eprintln!("could not highlight words: {err}")
+            eprintln!("ERROR: could not highlight words: {err}")
         }
     }
 }
