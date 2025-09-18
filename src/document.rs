@@ -32,7 +32,7 @@ impl Document {
         }
     }
 
-    pub fn print_highlight_words(&self, words: &HashSet<Word>) -> Result<(), Box<dyn Error>> {
+    pub fn print_highlighted_words(&self, words: &HashSet<Word>) -> Result<(), Box<dyn Error>> {
         let reader = BufReader::new(File::open(&self.path)?);
         let pattern = format!(
             "(?i)({})",
