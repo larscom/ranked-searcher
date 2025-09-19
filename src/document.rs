@@ -14,29 +14,29 @@ use std::{
     },
 };
 
-pub type Word = String;
+pub type Term = String;
 
 #[derive(Debug)]
 pub struct Document {
     path: PathBuf,
-    total_words: usize,
-    word_freq: Arc<HashMap<Word, usize>>,
+    total_terms: usize,
+    term_freq: Arc<HashMap<Term, usize>>,
 }
 
 impl Document {
-    pub fn new(path: PathBuf, total_words: usize, word_freq: Arc<HashMap<Word, usize>>) -> Self {
+    pub fn new(path: PathBuf, total_terms: usize, term_freq: Arc<HashMap<Term, usize>>) -> Self {
         Self {
             path,
-            total_words,
-            word_freq,
+            total_terms,
+            term_freq,
         }
     }
 
-    pub fn print_highlighted_words(&self, words: &HashSet<Word>) -> Result<(), Box<dyn Error>> {
+    pub fn print_highlighted_terms(&self, terms: &HashSet<Term>) -> Result<(), Box<dyn Error>> {
         let reader = BufReader::new(File::open(&self.path)?);
         let pattern = format!(
             "(?i)({})",
-            words
+            terms
                 .iter()
                 .map(|w| regex::escape(w))
                 .collect::<Vec<_>>()
@@ -57,12 +57,12 @@ impl Document {
         Ok(())
     }
 
-    pub fn word_frequency(&self, word: &Word) -> f32 {
-        self.word_freq.get(word).cloned().unwrap_or(0) as f32
+    pub fn term_frequency(&self, term: &Term) -> f32 {
+        self.term_freq.get(term).cloned().unwrap_or(0) as f32
     }
 
-    pub fn total_word_count(&self) -> usize {
-        self.total_words
+    pub fn total_term_count(&self) -> usize {
+        self.total_terms
     }
 
     pub fn file_path(&self) -> &Path {
@@ -87,8 +87,8 @@ impl std::hash::Hash for Document {
 #[derive(Default)]
 pub struct DocumentIndex {
     total_documents: usize,
-    document_db: HashMap<Word, HashSet<Document>>,
-    document_freq: HashMap<Word, usize>,
+    document_db: HashMap<Term, HashSet<Document>>,
+    document_freq: HashMap<Term, usize>,
 }
 
 impl DocumentIndex {
@@ -97,8 +97,8 @@ impl DocumentIndex {
     }
 
     pub fn index_dir(&mut self, dir_path: &Path) {
-        let document_db = Mutex::new(HashMap::<Word, HashSet<Document>>::new());
-        let document_freq = Mutex::new(HashMap::<Word, usize>::new());
+        let document_db = Mutex::new(HashMap::<Term, HashSet<Document>>::new());
+        let document_freq = Mutex::new(HashMap::<Term, usize>::new());
         let total_documents = AtomicUsize::new(0);
 
         WalkBuilder::new(dir_path)
@@ -127,12 +127,12 @@ impl DocumentIndex {
         self.total_documents = total_documents.load(Ordering::Relaxed);
     }
 
-    pub fn documents(&self, word: &Word) -> Option<&HashSet<Document>> {
-        self.document_db.get(word)
+    pub fn documents(&self, term: &Term) -> Option<&HashSet<Document>> {
+        self.document_db.get(term)
     }
 
-    pub fn document_frequency(&self, word: &Word) -> f32 {
-        self.document_freq.get(word).cloned().unwrap_or(1) as f32
+    pub fn document_frequency(&self, term: &Term) -> f32 {
+        self.document_freq.get(term).cloned().unwrap_or(1) as f32
     }
 
     pub fn total_document_count(&self) -> usize {
@@ -143,30 +143,30 @@ impl DocumentIndex {
         &self,
         content: String,
         path: PathBuf,
-        document_db: &Mutex<HashMap<Word, HashSet<Document>>>,
-        document_freq: &Mutex<HashMap<Word, usize>>,
+        document_db: &Mutex<HashMap<Term, HashSet<Document>>>,
+        document_freq: &Mutex<HashMap<Term, usize>>,
     ) {
-        let words = WordCollector::new(&content).collect();
-        let mut word_freq = HashMap::new();
+        let terms = TermCollector::new(&content).collect();
+        let mut term_freq = HashMap::new();
 
-        let mut total_word_count = 0;
+        let mut total_term_count = 0;
 
-        for word in words.iter() {
-            if let Some(count) = word_freq.get_mut(word) {
+        for term in terms.iter() {
+            if let Some(count) = term_freq.get_mut(term) {
                 *count += 1;
             } else {
-                word_freq.insert(word.to_string(), 1);
+                term_freq.insert(term.to_string(), 1);
             }
-            total_word_count += 1;
+            total_term_count += 1;
         }
 
         match document_freq.lock() {
             Ok(mut document_freq) => {
-                for word in word_freq.keys() {
-                    if let Some(count) = document_freq.get_mut(word) {
+                for term in term_freq.keys() {
+                    if let Some(count) = document_freq.get_mut(term) {
                         *count += 1;
                     } else {
-                        document_freq.insert(word.to_string(), 1);
+                        document_freq.insert(term.to_string(), 1);
                     }
                 }
             }
@@ -175,19 +175,19 @@ impl DocumentIndex {
             }
         }
 
-        let word_freq = Arc::new(word_freq);
+        let term_freq = Arc::new(term_freq);
 
         match document_db.lock() {
             Ok(mut document_db) => {
-                for word in words {
+                for term in terms {
                     let path = path.clone();
-                    let document = Document::new(path, total_word_count, word_freq.clone());
-                    match document_db.get_mut(&word) {
+                    let document = Document::new(path, total_term_count, term_freq.clone());
+                    match document_db.get_mut(&term) {
                         Some(docs) => {
                             docs.insert(document);
                         }
                         None => {
-                            document_db.insert(word, HashSet::from([document]));
+                            document_db.insert(term, HashSet::from([document]));
                         }
                     }
                 }
@@ -199,29 +199,29 @@ impl DocumentIndex {
     }
 }
 
-pub struct WordCollector<'a> {
+pub struct TermCollector<'a> {
     content: &'a str,
-    word_matcher: Regex,
+    term_matcher: Regex,
 }
 
-impl<'a> WordCollector<'a> {
+impl<'a> TermCollector<'a> {
     pub fn new(content: &'a str) -> Self {
         Self {
             content,
-            word_matcher: Regex::new(r"[A-Za-z0-9.]+").expect("should be valid regex"),
+            term_matcher: Regex::new(r"[A-Za-z0-9.]+").expect("should be valid regex"),
         }
     }
 
-    pub fn collect_unique(&self) -> HashSet<Word> {
+    pub fn collect_unique(&self) -> HashSet<Term> {
         self.iter().collect()
     }
 
-    pub fn collect(&self) -> Vec<Word> {
+    pub fn collect(&self) -> Vec<Term> {
         self.iter().collect()
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = Word> {
-        self.word_matcher
+    pub fn iter(&self) -> impl Iterator<Item = Term> {
+        self.term_matcher
             .find_iter(self.content)
             .map(|m| m.as_str().to_ascii_lowercase())
     }

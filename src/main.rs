@@ -1,5 +1,5 @@
 use crate::{
-    document::{DocumentIndex, WordCollector},
+    document::{DocumentIndex, TermCollector},
     search::RankedSearcher,
 };
 use colored::Colorize;
@@ -13,8 +13,9 @@ fn main() {
     let _ = args.next().expect("executable location should be present");
 
     let query = args.next().unwrap_or_else(|| {
-        eprintln!("ERROR: query is missing");
-        eprintln!("usage: rs <query> [dir]");
+        eprintln!("ERROR: terms are missing");
+        eprintln!("usage: rs <terms> [dir]");
+        eprintln!("example: rs 'hello world'");
         process::exit(1);
     });
 
@@ -28,8 +29,8 @@ fn main() {
 
     let rs = RankedSearcher::new(&document_index);
 
-    let query_words = WordCollector::new(&query).collect_unique();
-    let search_result = rs.search(&query_words);
+    let query_terms = TermCollector::new(&query).collect_unique();
+    let search_result = rs.search(&query_terms);
 
     for result in search_result {
         println!(
@@ -42,8 +43,8 @@ fn main() {
                 .bright_green()
         );
 
-        if let Err(err) = result.document.print_highlighted_words(&query_words) {
-            eprintln!("ERROR: could not highlight words: {err}")
+        if let Err(err) = result.document.print_highlighted_terms(&query_terms) {
+            eprintln!("ERROR: could not highlight terms: {err}")
         }
     }
 }

@@ -7,7 +7,7 @@ description = "Search text documents using tf-idf formula"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/larscom/ranked-searcher"
 readme = "README.md"
-keywords = ["search", "tf-idf", "ranked", "document", "text"]
+keywords = ["search", "tf-idf", "ranked", "document", "text", "term"]
 categories = ["command-line-utilities"]
 exclude = [".github", "test_data/*"]
 
