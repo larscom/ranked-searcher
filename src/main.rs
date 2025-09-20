@@ -19,12 +19,17 @@ fn main() {
         process::exit(1);
     });
 
+    let work_dir = env::current_dir().unwrap_or_else(|_| {
+        eprintln!("ERROR: could not get the current working directory");
+        process::exit(1);
+    });
+
     let dir_path = args
         .next()
         .map(PathBuf::from)
-        .unwrap_or_else(|| env::current_dir().expect("failed to get current working dir"));
+        .unwrap_or_else(|| work_dir.clone());
 
-    let mut document_index = DocumentIndex::new();
+    let mut document_index = DocumentIndex::new(work_dir);
     document_index.index_dir(&dir_path);
 
     let rs = RankedSearcher::new(&document_index);

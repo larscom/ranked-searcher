@@ -87,22 +87,26 @@ impl std::hash::Hash for Document {
 
 #[derive(Default)]
 pub struct DocumentIndex {
+    work_dir: PathBuf,
     total_documents: usize,
     document_db: HashMap<Term, HashSet<Document>>,
     document_freq: HashMap<Term, usize>,
 }
 
 impl DocumentIndex {
-    pub fn new() -> Self {
-        Self::default()
+    pub fn new(work_dir: PathBuf) -> Self {
+        Self {
+            work_dir,
+            ..Default::default()
+        }
     }
 
-    pub fn index_dir(&mut self, dir_path: &Path) {
+    pub fn index_dir(&mut self, path: &Path) {
         let document_db = Mutex::new(HashMap::<Term, HashSet<Document>>::new());
         let document_freq = Mutex::new(HashMap::<Term, usize>::new());
         let total_documents = AtomicUsize::new(0);
 
-        WalkBuilder::new(dir_path)
+        WalkBuilder::new(path)
             .build()
             .filter_map(Result::ok)
             .par_bridge()
@@ -182,7 +186,12 @@ impl DocumentIndex {
             Ok(mut document_db) => {
                 for term in terms {
                     let path = path.clone();
-                    let document = Document::new(path, total_term_count, term_freq.clone());
+                    let relative_path = path.strip_prefix(&self.work_dir).unwrap_or(&path);
+                    let document = Document::new(
+                        relative_path.to_path_buf(),
+                        total_term_count,
+                        term_freq.clone(),
+                    );
                     match document_db.get_mut(&term) {
                         Some(docs) => {
                             docs.insert(document);
