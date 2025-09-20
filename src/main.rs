@@ -1,9 +1,9 @@
 use crate::{
-    document::{DocumentIndex, TermCollector},
+    document::{DocumentIndex, Term, TermCollector},
     search::RankedSearcher,
 };
 use colored::Colorize;
-use std::{env, path::PathBuf, process};
+use std::{collections::HashSet, env, path::PathBuf, process};
 
 mod document;
 mod search;
@@ -29,7 +29,7 @@ fn main() {
 
     let rs = RankedSearcher::new(&document_index);
 
-    let query_terms = TermCollector::new(&query).collect_unique();
+    let query_terms = TermCollector::new(&query).collect::<HashSet<Term>>();
     let search_result = rs.search(&query_terms);
 
     for result in search_result {

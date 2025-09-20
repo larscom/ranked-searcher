@@ -13,6 +13,7 @@ use std::{
         atomic::{AtomicUsize, Ordering},
     },
 };
+use unicode_segmentation::{UnicodeSegmentation, UnicodeWords};
 
 pub type Term = String;
 
@@ -35,7 +36,7 @@ impl Document {
     pub fn print_highlighted_terms(&self, terms: &HashSet<Term>) -> Result<(), Box<dyn Error>> {
         let reader = BufReader::new(File::open(&self.path)?);
         let pattern = format!(
-            "(?i)({})",
+            "(?i)\\b({})\\b",
             terms
                 .iter()
                 .map(|w| regex::escape(w))
@@ -146,7 +147,7 @@ impl DocumentIndex {
         document_db: &Mutex<HashMap<Term, HashSet<Document>>>,
         document_freq: &Mutex<HashMap<Term, usize>>,
     ) {
-        let terms = TermCollector::new(&content).collect();
+        let terms = TermCollector::new(&content).collect::<Vec<Term>>();
         let mut term_freq = HashMap::new();
 
         let mut total_term_count = 0;
@@ -200,29 +201,25 @@ impl DocumentIndex {
 }
 
 pub struct TermCollector<'a> {
-    content: &'a str,
-    term_matcher: Regex,
+    iter: UnicodeWords<'a>,
 }
 
 impl<'a> TermCollector<'a> {
     pub fn new(content: &'a str) -> Self {
         Self {
-            content,
-            term_matcher: Regex::new(r"[A-Za-z0-9.]+").expect("should be valid regex"),
+            iter: content.unicode_words(),
         }
     }
 
-    pub fn collect_unique(&self) -> HashSet<Term> {
-        self.iter().collect()
+    pub fn next_term(&mut self) -> Option<Term> {
+        self.iter.next().map(|v| v.to_string().to_ascii_lowercase())
     }
+}
 
-    pub fn collect(&self) -> Vec<Term> {
-        self.iter().collect()
-    }
+impl<'a> Iterator for TermCollector<'a> {
+    type Item = Term;
 
-    pub fn iter(&self) -> impl Iterator<Item = Term> {
-        self.term_matcher
-            .find_iter(self.content)
-            .map(|m| m.as_str().to_ascii_lowercase())
+    fn next(&mut self) -> Option<Self::Item> {
+        self.next_term()
     }
 }

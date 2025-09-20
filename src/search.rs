@@ -19,7 +19,7 @@ pub struct Result<'a> {
 impl<'a> Result<'a> {
     pub fn print_stats(&self) {
         println!(
-            "\nFile: {}\n-----------------------------",
+            "\n{}\n-----------------------------",
             self.document.file_path().display()
         );
 
