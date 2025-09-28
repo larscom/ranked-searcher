@@ -1,6 +1,5 @@
 use colored::Colorize;
 use ignore::WalkBuilder;
-use oxidize_pdf::PdfReader;
 use rayon::iter::{ParallelBridge, ParallelIterator};
 use regex::Regex;
 use std::{
@@ -92,16 +91,9 @@ fn read_text_file(path: &Path) -> Option<(String, PathBuf)> {
         .map(|content| (content, path.to_path_buf()))
 }
 
-fn read_pdf_file(path: &Path) -> Option<(String, PathBuf)> {
-    let reader = PdfReader::open(path).unwrap();
-    let document = reader.into_document();
-    let text = document.extract_text().unwrap();
-    let mut result = String::new();
-    for page_text in text {
-        result.push('\n');
-        result.push_str(&page_text.text);
-    }
-    Some((result, path.to_path_buf()))
+// TODO: find proper PDF lib that can extract text
+fn read_pdf_file(_path: &Path) -> Option<(String, PathBuf)> {
+    None
 }
 
 #[derive(Default)]
