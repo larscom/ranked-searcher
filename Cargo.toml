@@ -18,6 +18,7 @@ path = "src/main.rs"
 [dependencies]
 colored = "3.0.0"
 ignore = "0.4.23"
+oxidize-pdf = "1.2.3"
 rayon = "1.11.0"
-regex = "1.11.2"
+regex = "1.11.3"
 unicode-segmentation = "1.12.0"

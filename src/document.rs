@@ -1,5 +1,6 @@
 use colored::Colorize;
 use ignore::WalkBuilder;
+use oxidize_pdf::PdfReader;
 use rayon::iter::{ParallelBridge, ParallelIterator};
 use regex::Regex;
 use std::{
@@ -85,6 +86,24 @@ impl std::hash::Hash for Document {
     }
 }
 
+fn read_text_file(path: &Path) -> Option<(String, PathBuf)> {
+    fs::read_to_string(path)
+        .ok()
+        .map(|content| (content, path.to_path_buf()))
+}
+
+fn read_pdf_file(path: &Path) -> Option<(String, PathBuf)> {
+    let reader = PdfReader::open(path).unwrap();
+    let document = reader.into_document();
+    let text = document.extract_text().unwrap();
+    let mut result = String::new();
+    for page_text in text {
+        result.push('\n');
+        result.push_str(&page_text.text);
+    }
+    Some((result, path.to_path_buf()))
+}
+
 #[derive(Default)]
 pub struct DocumentIndex {
     work_dir: PathBuf,
@@ -111,10 +130,13 @@ impl DocumentIndex {
             .filter_map(Result::ok)
             .par_bridge()
             .filter_map(|entry| {
-                let path = entry.path().to_path_buf();
-                fs::read_to_string(&path)
-                    .ok()
-                    .map(|content| (content, path))
+                let path = entry.path();
+                path.extension()
+                    .and_then(|ext: &std::ffi::OsStr| ext.to_str())
+                    .and_then(|ext| match ext {
+                        "pdf" => read_pdf_file(path),
+                        _ => read_text_file(path),
+                    })
             })
             .for_each(|(content, path)| {
                 total_documents.fetch_add(1, Ordering::Relaxed);
