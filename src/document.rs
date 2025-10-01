@@ -96,6 +96,11 @@ fn read_pdf_file(_path: &Path) -> Option<(String, PathBuf)> {
     None
 }
 
+// TODO: find proper docx lib that can extract text
+fn read_docx_file(_path: &Path) -> Option<(String, PathBuf)> {
+    None
+}
+
 #[derive(Default)]
 pub struct DocumentIndex {
     work_dir: PathBuf,
@@ -127,6 +132,7 @@ impl DocumentIndex {
                     .and_then(|ext: &std::ffi::OsStr| ext.to_str())
                     .and_then(|ext| match ext {
                         "pdf" => read_pdf_file(path),
+                        "docx" => read_docx_file(path),
                         _ => read_text_file(path),
                     })
             })
