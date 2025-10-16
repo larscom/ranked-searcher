@@ -7,7 +7,7 @@ description = "Search inside text files using tf-idf formula, showing the most r
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/larscom/ranked-searcher"
 readme = "README.md"
-keywords = ["search", "tf-idf", "ranked", "document", "text", "term", "docx", "json"]
+keywords = ["search", "tf-idf", "ranked", "document", "text"]
 categories = ["command-line-utilities", "text-processing"]
 exclude = [".github", "test_data/*"]
 
