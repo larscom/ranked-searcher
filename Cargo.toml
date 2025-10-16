@@ -3,12 +3,12 @@ name = "ranked-searcher"
 version = "0.0.0"
 edition = "2024"
 authors = ["Lars Kniep <larskniep@gmail.com>"]
-description = "Search inside text files using tf-idf formula, showing most relevant search at the top."
+description = "Search inside text files using tf-idf formula, showing the most relevant search at the top"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/larscom/ranked-searcher"
 readme = "README.md"
 keywords = ["search", "tf-idf", "ranked", "document", "text", "term", "docx", "json"]
-categories = ["command-line-utilities"]
+categories = ["command-line-utilities", "text-processing"]
 exclude = [".github", "test_data/*"]
 
 [[bin]]
