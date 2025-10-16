@@ -24,14 +24,14 @@ $ cargo install ranked-searcher
 
 ## 🎯 Usage
 
-Search in current directory for files containing the terms `performance metrics`
+Search in current directory for files containing the terms `hello world`
 ```bash
-$ rs "performance metrics"
+$ rs "hello world"
 ```
 
 Or search inside a given directory (optional)
 ```bash
-$ rs "performance metrics" ./some/dir
+$ rs "hello world" ./some/dir
 ```
 
 Example output:
