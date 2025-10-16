@@ -6,7 +6,7 @@ use std::{
     collections::{HashMap, HashSet},
     error::Error,
     fs::{self, File},
-    io::{BufRead, BufReader},
+    io::{BufReader, Read},
     path::{Path, PathBuf},
     sync::{
         Arc, Mutex,
@@ -14,19 +14,27 @@ use std::{
     },
 };
 use unicode_segmentation::{UnicodeSegmentation, UnicodeWords};
+use zip::ZipArchive;
 
 pub type Term = String;
 
 #[derive(Debug)]
 pub struct Document {
+    parser: fn(&Path) -> Option<String>,
     path: PathBuf,
     total_terms: usize,
     term_freq: Arc<HashMap<Term, usize>>,
 }
 
 impl Document {
-    pub fn new(path: PathBuf, total_terms: usize, term_freq: Arc<HashMap<Term, usize>>) -> Self {
+    pub fn new(
+        parser: fn(&Path) -> Option<String>,
+        path: PathBuf,
+        total_terms: usize,
+        term_freq: Arc<HashMap<Term, usize>>,
+    ) -> Self {
         Self {
+            parser,
             path,
             total_terms,
             term_freq,
@@ -34,24 +42,24 @@ impl Document {
     }
 
     pub fn print_highlighted_terms(&self, terms: &HashSet<Term>) -> Result<(), Box<dyn Error>> {
-        let reader = BufReader::new(File::open(&self.path)?);
-        let pattern = format!(
-            "(?i)\\b({})\\b",
-            terms
-                .iter()
-                .map(|w| regex::escape(w))
-                .collect::<Vec<_>>()
-                .join("|")
-        );
-        let re = Regex::new(&pattern)?;
+        if let Some(content) = (self.parser)(&self.path) {
+            let pattern = format!(
+                "(?i)\\b({})\\b",
+                terms
+                    .iter()
+                    .map(|w| regex::escape(w))
+                    .collect::<Vec<_>>()
+                    .join("|")
+            );
+            let re = Regex::new(&pattern)?;
 
-        for (num, line) in reader.lines().enumerate() {
-            let line = line?;
-            if re.is_match(&line) {
-                let highlighted = re.replace_all(&line, |caps: &regex::Captures| {
-                    caps[0].bright_blue().bold().to_string()
-                });
-                println!("{}:{}", (num + 1).to_string().bright_yellow(), highlighted);
+            for (num, line) in content.lines().enumerate() {
+                if re.is_match(line) {
+                    let highlighted = re.replace_all(line, |caps: &regex::Captures| {
+                        caps[0].bright_blue().bold().to_string()
+                    });
+                    println!("{}:{}", (num + 1).to_string().bright_yellow(), highlighted);
+                }
             }
         }
 
@@ -85,20 +93,45 @@ impl std::hash::Hash for Document {
     }
 }
 
-fn read_text_file(path: &Path) -> Option<(String, PathBuf)> {
-    fs::read_to_string(path)
+fn read_text_file(path: &Path) -> Option<String> {
+    fs::read_to_string(path).ok()
+}
+
+// TODO: extract text from pdf
+fn read_pdf_file(_path: &Path) -> Option<String> {
+    None
+}
+
+fn read_docx_file(path: &Path) -> Option<String> {
+    File::open(path)
         .ok()
-        .map(|content| (content, path.to_path_buf()))
-}
+        .map(BufReader::new)
+        .and_then(|reader| ZipArchive::new(reader).ok())
+        .as_mut()
+        .map(|archive| {
+            let mut content = String::new();
+            for i in 0..archive.len() {
+                let mut file = archive.by_index(i).expect("file by index");
+                let name = file.name().to_string();
 
-// TODO: find proper PDF lib that can extract text
-fn read_pdf_file(_path: &Path) -> Option<(String, PathBuf)> {
-    None
-}
-
-// TODO: find proper docx lib that can extract text
-fn read_docx_file(_path: &Path) -> Option<(String, PathBuf)> {
-    None
+                if name.starts_with("word/") && name.ends_with(".xml") {
+                    let mut xml = String::new();
+                    file.read_to_string(&mut xml)
+                        .expect("file should be valid UTF-8");
+                    if let Ok(doc) = roxmltree::Document::parse(&xml) {
+                        for text in doc
+                            .descendants()
+                            .filter(|n| n.has_tag_name("t"))
+                            .filter_map(|n| n.text())
+                        {
+                            content.push_str(text);
+                            content.push('\n');
+                        }
+                    }
+                }
+            }
+            content
+        })
 }
 
 #[derive(Default)]
@@ -107,6 +140,22 @@ pub struct DocumentIndex {
     total_documents: usize,
     document_db: HashMap<Term, HashSet<Document>>,
     document_freq: HashMap<Term, usize>,
+}
+
+struct ParsedResult {
+    content: String,
+    path: PathBuf,
+    parser: fn(&Path) -> Option<String>,
+}
+
+impl ParsedResult {
+    pub fn new(content: String, path: PathBuf, parser: fn(&Path) -> Option<String>) -> Self {
+        Self {
+            content,
+            path,
+            parser,
+        }
+    }
 }
 
 impl DocumentIndex {
@@ -131,14 +180,17 @@ impl DocumentIndex {
                 path.extension()
                     .and_then(|ext: &std::ffi::OsStr| ext.to_str())
                     .and_then(|ext| match ext {
-                        "pdf" => read_pdf_file(path),
-                        "docx" => read_docx_file(path),
-                        _ => read_text_file(path),
+                        "pdf" => read_pdf_file(path)
+                            .map(|c| ParsedResult::new(c, path.to_path_buf(), read_pdf_file)),
+                        "docx" => read_docx_file(path)
+                            .map(|c| ParsedResult::new(c, path.to_path_buf(), read_docx_file)),
+                        _ => read_text_file(path)
+                            .map(|c| ParsedResult::new(c, path.to_path_buf(), read_text_file)),
                     })
             })
-            .for_each(|(content, path)| {
+            .for_each(|r| {
                 total_documents.fetch_add(1, Ordering::Relaxed);
-                self.update_index(content, path, &document_db, &document_freq);
+                self.update_index(r, &document_db, &document_freq);
             });
 
         match document_db.into_inner() {
@@ -166,12 +218,11 @@ impl DocumentIndex {
 
     fn update_index(
         &self,
-        content: String,
-        path: PathBuf,
+        parsed_result: ParsedResult,
         document_db: &Mutex<HashMap<Term, HashSet<Document>>>,
         document_freq: &Mutex<HashMap<Term, usize>>,
     ) {
-        let terms = TermCollector::new(&content).collect::<Vec<Term>>();
+        let terms = TermCollector::new(&parsed_result.content).collect::<Vec<Term>>();
         let mut term_freq = HashMap::new();
 
         let mut total_term_count = 0;
@@ -205,9 +256,10 @@ impl DocumentIndex {
         match document_db.lock() {
             Ok(mut document_db) => {
                 for term in terms {
-                    let path = path.clone();
+                    let path = parsed_result.path.clone();
                     let relative_path = path.strip_prefix(&self.work_dir).unwrap_or(&path);
                     let document = Document::new(
+                        parsed_result.parser,
                         relative_path.to_path_buf(),
                         total_term_count,
                         term_freq.clone(),
