@@ -85,7 +85,7 @@ jobs:
           shell: bash
           run: |
             mkdir -p dist
-            crate="rs"
+            crate="ranked-searcher"
             bin="target/${{ matrix.target }}/release/$crate"
             if [[ "${{ matrix.platform }}" == "windows" ]]; then
               bin="${bin}.exe"
@@ -100,8 +100,8 @@ jobs:
           if: startsWith(github.ref, 'refs/tags/')
           uses: actions/upload-artifact@v5
           with:
-            name: "rs-${{ github.ref_name }}-${{ matrix.platform }}-${{ matrix.arch }}"
-            path: "dist/rs-${{ github.ref_name }}-${{ matrix.platform }}-${{ matrix.arch }}.*"
+            name: "ranked-searcher-${{ github.ref_name }}-${{ matrix.platform }}-${{ matrix.arch }}"
+            path: "dist/ranked-searcher-${{ github.ref_name }}-${{ matrix.platform }}-${{ matrix.arch }}.*"
  
   gh-release:
     if: startsWith(github.ref, 'refs/tags/')

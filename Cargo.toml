@@ -11,13 +11,9 @@ keywords = ["search", "tf-idf", "ranked", "document", "text"]
 categories = ["command-line-utilities", "text-processing"]
 exclude = [".github", "test_data/*"]
 
-[[bin]]
-name = "rs"
-path = "src/main.rs"
-
 [dependencies]
 colored = "3.0.0"
-ignore = "0.4.24"
+ignore = "0.4.25"
 rayon = "1.11.0"
 regex = "1.12.2"
 roxmltree = "0.21.1"

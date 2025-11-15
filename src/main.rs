@@ -14,8 +14,8 @@ fn main() {
 
     let query = args.next().unwrap_or_else(|| {
         eprintln!("ERROR: terms are missing");
-        eprintln!("usage: rs <terms> [dir]");
-        eprintln!("example: rs 'hello world'");
+        eprintln!("usage: ranked-searcher <terms> [dir]");
+        eprintln!("example: ranked-searcher 'hello world'");
         process::exit(1);
     });
 

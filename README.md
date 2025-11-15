@@ -28,12 +28,12 @@ Or simply download the binary for your platform: https://github.com/larscom/rank
 
 Search in current directory for files containing the terms `hello world`
 ```bash
-$ rs "hello world"
+$ ranked-searcher "hello world"
 ```
 
 Or search inside a given directory (optional)
 ```bash
-$ rs "hello world" ./some/dir
+$ ranked-searcher "hello world" ./some/dir
 ```
 
 Example output:
