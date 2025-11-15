@@ -17,7 +17,14 @@ It’s pretty fast, considering the fact it has to gather all the files first an
 
 ## 🚀 Installation
 
-#### Cargo (cross-platform)
+### 🍺 Homebrew
+```bash
+brew tap larscom/tap
+
+brew install larscom/tap/ranked_searcher
+```
+
+#### 📦 Cargo
 ```bash
 $ cargo install ranked-searcher
 ```

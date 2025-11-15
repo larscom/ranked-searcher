@@ -129,6 +129,60 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+  homebrew-release:
+        if: startsWith(github.ref, 'refs/tags/')
+        needs: gh-release
+        runs-on: ubuntu-latest
+        steps:
+          - name: Checkout repository
+            uses: actions/checkout@v5
+
+          - name: Set up variables
+            id: vars
+            run: |
+              VERSION=${{ github.ref_name }}
+              echo "VERSION=$VERSION" >> $GITHUB_ENV
+              INTEL_URL="https://github.com/larscom/ranked-searcher/releases/download/$VERSION/ranked-searcher-$VERSION-macos-x86_64.tar.gz"
+              ARM_URL="https://github.com/larscom/ranked-searcher/releases/download/$VERSION/ranked-searcher-$VERSION-macos-arm64.tar.gz"
+              echo "INTEL_URL=$INTEL_URL" >> $GITHUB_ENV
+              echo "ARM_URL=$ARM_URL" >> $GITHUB_ENV
+
+          - name: Download release artifacts
+            run: |
+              curl -L -o ranked-searcher-intel.tar.gz "$INTEL_URL"
+              curl -L -o ranked-searcher-arm.tar.gz "$ARM_URL"
+
+          - name: Compute SHA256
+            run: |
+              SHA256_INTEL=$(sha256sum ranked-searcher-intel.tar.gz | awk '{print $1}')
+              SHA256_ARM=$(sha256sum ranked-searcher-arm.tar.gz | awk '{print $1}')
+              echo "SHA256_INTEL=$SHA256_INTEL" >> $GITHUB_ENV
+              echo "SHA256_ARM=$SHA256_ARM" >> $GITHUB_ENV
+
+          - name: Checkout homebrew tap
+            uses: actions/checkout@v3
+            with:
+              repository: larscom/homebrew-tap
+              token: ${{ secrets.GITHUB_TOKEN }}
+              path: homebrew-tap
+
+          - name: Update Formula from template
+            run: |
+              TEMPLATE="$(cat formula/template.rb)"
+              FORMULA="${TEMPLATE//\{\{version\}\}/$VERSION}"
+              FORMULA="${FORMULA//\{\{sha256_intel\}\}/$SHA256_INTEL}"
+              FORMULA="${FORMULA//\{\{sha256_arm\}\}/$SHA256_ARM}"
+              echo "$FORMULA" > homebrew-tap/Formula/ranked_searcher.rb
+
+          - name: Commit and push
+            run: |
+              cd homebrew-tap
+              git config user.name "github-actions[bot]"
+              git config user.email "github-actions[bot]@users.noreply.github.com"
+              git add Formula/ranked_searcher.rb
+              git commit -m "Update ranked_searcher.rb to version $VERSION"
+              git push         
+
   crates-io-release:
         if: startsWith(github.ref, 'refs/tags/')
         needs: build
