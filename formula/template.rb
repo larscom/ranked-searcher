@@ -6,7 +6,7 @@ class RankedSearcher < Formula
   on_macos do
     on_intel do
       url "https://github.com/larscom/ranked-searcher/releases/download/{{version}}/ranked-searcher-{{version}}-macos-x86_64.tar.gz"
-      sha256 "{{sha265_intel}}"
+      sha256 "{{sha256_intel}}"
     end
 
     on_arm do
