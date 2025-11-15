@@ -22,6 +22,8 @@ It’s pretty fast, considering the fact it has to gather all the files first an
 $ cargo install ranked-searcher
 ```
 
+Or simply download the binary for your platform: https://github.com/larscom/ranked-searcher/releases
+
 ## 🎯 Usage
 
 Search in current directory for files containing the terms `hello world`
