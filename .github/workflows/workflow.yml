@@ -142,22 +142,30 @@ jobs:
             run: |
               VERSION=${{ github.ref_name }}
               echo "VERSION=$VERSION" >> $GITHUB_ENV
-              INTEL_URL="https://github.com/larscom/ranked-searcher/releases/download/$VERSION/ranked-searcher-$VERSION-macos-x86_64.tar.gz"
-              ARM_URL="https://github.com/larscom/ranked-searcher/releases/download/$VERSION/ranked-searcher-$VERSION-macos-arm64.tar.gz"
-              echo "INTEL_URL=$INTEL_URL" >> $GITHUB_ENV
-              echo "ARM_URL=$ARM_URL" >> $GITHUB_ENV
+
+              MACOS_INTEL_URL="https://github.com/larscom/ranked-searcher/releases/download/$VERSION/ranked-searcher-$VERSION-macos-x86_64.tar.gz"
+              MACOS_ARM_URL="https://github.com/larscom/ranked-searcher/releases/download/$VERSION/ranked-searcher-$VERSION-macos-arm64.tar.gz"
+              LINUX_INTEL_URL="https://github.com/larscom/ranked-searcher/releases/download/$VERSION/ranked-searcher-$VERSION-linux-x86_64.tar.gz"
+
+              echo "MACOS_INTEL_URL=$MACOS_INTEL_URL" >> $GITHUB_ENV
+              echo "MACOS_ARM_URL=$MACOS_ARM_URL" >> $GITHUB_ENV
+              echo "LINUX_INTEL_URL=$LINUX_INTEL_URL" >> $GITHUB_ENV
 
           - name: Download release artifacts
             run: |
-              curl -L -o ranked-searcher-intel.tar.gz "$INTEL_URL"
-              curl -L -o ranked-searcher-arm.tar.gz "$ARM_URL"
+              curl -L -o macos-intel.tar.gz "$MACOS_INTEL_URL"
+              curl -L -o macos-arm.tar.gz "$MACOS_ARM_URL"
+              curl -L -o linux-intel.tar.gz "$LINUX_INTEL_URL"
 
           - name: Compute SHA256
             run: |
-              SHA256_INTEL=$(sha256sum ranked-searcher-intel.tar.gz | awk '{print $1}')
-              SHA256_ARM=$(sha256sum ranked-searcher-arm.tar.gz | awk '{print $1}')
-              echo "SHA256_INTEL=$SHA256_INTEL" >> $GITHUB_ENV
-              echo "SHA256_ARM=$SHA256_ARM" >> $GITHUB_ENV
+              SHA256_MACOS_INTEL=$(sha256sum macos-intel.tar.gz | awk '{print $1}')
+              SHA256_MACOS_ARM=$(sha256sum macos-arm.tar.gz | awk '{print $1}')
+              SHA256_LINUX_INTEL=$(sha256sum linux-intel.tar.gz | awk '{print $1}')
+
+              echo "SHA256_MACOS_INTEL=$SHA256_MACOS_INTEL" >> $GITHUB_ENV
+              echo "SHA256_MACOS_ARM=$SHA256_MACOS_ARM" >> $GITHUB_ENV
+              echo "SHA256_LINUX_INTEL=$SHA256_LINUX_INTEL" >> $GITHUB_ENV
 
           - name: Checkout homebrew tap
             uses: actions/checkout@v3
@@ -169,9 +177,12 @@ jobs:
           - name: Update Formula from template
             run: |
               TEMPLATE="$(cat formula/template.rb)"
+
               FORMULA="${TEMPLATE//\{\{version\}\}/$VERSION}"
-              FORMULA="${FORMULA//\{\{sha256_intel\}\}/$SHA256_INTEL}"
-              FORMULA="${FORMULA//\{\{sha256_arm\}\}/$SHA256_ARM}"
+              FORMULA="${FORMULA//\{\{sha256_macos_intel\}\}/$SHA256_MACOS_INTEL}"
+              FORMULA="${FORMULA//\{\{sha256_macos_arm\}\}/$SHA256_MACOS_ARM}"
+              FORMULA="${FORMULA//\{\{sha256_linux_intel\}\}/$SHA256_LINUX_INTEL}"
+
               echo "$FORMULA" > homebrew-tap/Formula/ranked_searcher.rb
 
           - name: Commit and push
