@@ -26,7 +26,7 @@ brew install larscom/tap/ranked_searcher
 
 #### 📦 Cargo
 ```bash
-$ cargo install ranked-searcher
+cargo install ranked-searcher
 ```
 
 Or simply download the binary for your platform: https://github.com/larscom/ranked-searcher/releases
