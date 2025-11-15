@@ -1,17 +1,17 @@
 class RankedSearcher < Formula
   desc "Search inside text files using tf-idf formula, showing the most relevant search at the top"
   homepage "https://github.com/larscom/ranked-searcher"
-  version "0.0.2"
+  version "0.1.0"
 
   on_macos do
     on_intel do
-      url "https://github.com/larscom/ranked-searcher/releases/download/0.0.2/ranked-searcher-0.0.2-macos-x86_64.tar.gz"
-      sha256 "2b3cdcbac23a84457a308d833fc7e8f32b5b1695409c5513c7079c472eb9fbf3"
+      url "https://github.com/larscom/ranked-searcher/releases/download/0.1.0/ranked-searcher-0.1.0-macos-x86_64.tar.gz"
+      sha256 "3c237b7c98ddc2e85925731cdd01c9915b65cdd4383c63118f9a8a1a86580e3e"
     end
 
     on_arm do
-      url "https://github.com/larscom/ranked-searcher/releases/download/0.0.2/ranked-searcher-0.0.2-macos-arm64.tar.gz"
-      sha256 "ebb2fd2ef231a94e862e9a5d534656b389c00aed01dd2e04e797587307e3c254"
+      url "https://github.com/larscom/ranked-searcher/releases/download/0.1.0/ranked-searcher-0.1.0-macos-arm64.tar.gz"
+      sha256 "75b2031d5ee8242168bd5126c1194abd8fc9181f864370cd6d9043ad8a18ef6d"
     end
   end
 
