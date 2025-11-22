@@ -24,6 +24,11 @@ brew tap larscom/tap
 brew install larscom/tap/ranked_searcher
 ```
 
+### 📟 Shell
+```bash
+curl -fsSL https://github.com/larscom/ranked-searcher/tree/main/scripts/install.sh | sh
+```
+
 #### 📦 Cargo
 ```bash
 cargo install ranked-searcher
