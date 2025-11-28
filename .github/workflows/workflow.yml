@@ -17,7 +17,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -57,7 +57,7 @@ jobs:
 
       steps:
         - name: Checkout repository
-          uses: actions/checkout@v5
+          uses: actions/checkout@v6
               
         - name: Set up Rust
           uses: dtolnay/rust-toolchain@stable
@@ -135,7 +135,7 @@ jobs:
         runs-on: ubuntu-latest
         steps:
           - name: Checkout repository
-            uses: actions/checkout@v5
+            uses: actions/checkout@v6
 
           - name: Set up variables
             id: vars
@@ -168,7 +168,7 @@ jobs:
               echo "SHA256_LINUX_INTEL=$SHA256_LINUX_INTEL" >> $GITHUB_ENV
 
           - name: Checkout homebrew tap
-            uses: actions/checkout@v3
+            uses: actions/checkout@v6
             with:
               repository: larscom/homebrew-tap
               token: ${{ secrets.HOMEBREW_TAP_PAT }}
@@ -203,7 +203,7 @@ jobs:
 
         steps:
           - name: Checkout repository
-            uses: actions/checkout@v5
+            uses: actions/checkout@v6
 
           - name: Install Rust
             uses: dtolnay/rust-toolchain@stable
