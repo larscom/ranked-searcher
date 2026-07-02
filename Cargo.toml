@@ -13,7 +13,7 @@ exclude = [".github", "test_data/*"]
 
 [dependencies]
 colored = "3.1.1"
-ignore = "0.4.26"
+ignore = "0.4.27"
 rayon = "1.12.0"
 regex = "1.12.4"
 roxmltree = "0.21.1"
